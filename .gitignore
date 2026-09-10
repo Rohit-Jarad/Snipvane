@@ -1,0 +1,33 @@
+## .NET
+bin/
+obj/
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+[Dd]ebug/
+[Rr]elease/
+
+## User secrets / local config with keys
+appsettings.Local.json
+appsettings.*.local.json
+
+## Storage (uploaded videos, generated clips, transcripts)
+Snipvane/Storage/
+Storage/
+Snipvane/wwwroot/
+
+## Node / React
+client/node_modules/
+client/dist/
+client/.env
+client/.env.local
+
+## OS / IDE
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/*
+!.vscode/extensions.json

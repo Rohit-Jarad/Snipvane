@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: snipvane
+    runtime: docker
+    plan: free
+    healthCheckPath: /api/health
+    envVars:
+      - key: Ai__TranscriptionProvider
+        value: Gemini
+      - key: Ai__GeminiModel
+        value: gemini-3.6-flash
+      - key: Ai__GeminiApiKey
+        sync: false
+      - key: DATABASE_URL
+        sync: false
+      - key: Storage__RootPath
+        value: Storage

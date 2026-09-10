@@ -1,0 +1,8 @@
+{
+  "Ai": {
+    "Provider": "Gemini",
+    "GeminiApiKey": "AIza-your-gemini-key",
+    "GeminiModel": "gemini-3.6-flash",
+    "TranscriptionProvider": "Gemini"
+  }
+}

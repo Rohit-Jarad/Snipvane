@@ -1,0 +1,18 @@
+# Git / IDE
+.git
+.vs
+.idea
+.vscode
+
+# Build
+**/bin
+**/obj
+client/node_modules
+client/dist
+Snipvane/wwwroot
+
+# Secrets and media
+**/appsettings.Local.json
+**/Storage
+**/.env
+**/.env.local

@@ -1,0 +1,38 @@
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Fraunces", ui-serif, Georgia, serif;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --color-ink: #13110e;
+  --color-ink-2: #1c1914;
+  --color-paper: #efe6d4;
+  --color-paper-dim: #cbbfa6;
+  --color-line: #2a261f;
+  --color-copper: #e08a3a;
+  --color-copper-dim: #b56a24;
+  --color-ok: #8fbf7a;
+  --color-warn: #d4a017;
+  --color-bad: #c45c4a;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--color-ink);
+  color: var(--color-paper);
+  font-family: var(--font-sans);
+}
+
+::selection {
+  background: var(--color-copper);
+  color: var(--color-ink);
+}
+
+input[type="file"]::file-selector-button {
+  display: none;
+}
