@@ -65,7 +65,7 @@ builder.Services.AddHttpClient("openai", client =>
 });
 builder.Services.AddHttpClient("gemini", client =>
 {
-    client.Timeout = TimeSpan.FromMinutes(10);
+    client.Timeout = TimeSpan.FromMinutes(15);
 });
 builder.Services.AddHttpClient("claude", client =>
 {

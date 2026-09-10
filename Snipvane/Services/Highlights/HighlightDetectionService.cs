@@ -6,6 +6,7 @@ using System.Text.RegularExpressions;
 using Microsoft.Extensions.Options;
 using Snipvane.DTOs;
 using Snipvane.Options;
+using Snipvane.Services.Ai;
 
 namespace Snipvane.Services.Highlights;
 
@@ -99,9 +100,6 @@ public class HighlightDetectionService : IHighlightAnalyzer
         }
 
         var model = string.IsNullOrWhiteSpace(Ai.GeminiModel) ? "gemini-3.6-flash" : Ai.GeminiModel;
-        var url =
-            $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={Uri.EscapeDataString(Ai.GeminiApiKey)}";
-
         var payload = new
         {
             systemInstruction = new
@@ -124,13 +122,14 @@ public class HighlightDetectionService : IHighlightAnalyzer
         };
 
         var client = _httpClientFactory.CreateClient("gemini");
-        using var response = await client.PostAsJsonAsync(url, payload, cancellationToken);
-        var body = await response.Content.ReadAsStringAsync(cancellationToken);
-        if (!response.IsSuccessStatusCode)
-        {
-            _logger.LogError("Gemini API failed ({Status}): {Body}", (int)response.StatusCode, body);
-            throw new InvalidOperationException($"Gemini API failed ({(int)response.StatusCode}): {Trim(body)}");
-        }
+        var (body, usedModel) = await GeminiGenerate.PostJsonAsync(
+            client,
+            Ai.GeminiApiKey,
+            model,
+            payload,
+            _logger,
+            cancellationToken);
+        _logger.LogInformation("Gemini highlights used model {Model}", usedModel);
 
         using var doc = JsonDocument.Parse(body);
         var text = doc.RootElement

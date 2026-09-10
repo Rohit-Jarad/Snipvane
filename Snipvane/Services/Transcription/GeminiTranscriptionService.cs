@@ -3,6 +3,7 @@ using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Snipvane.DTOs;
 using Snipvane.Options;
+using Snipvane.Services.Ai;
 using Snipvane.Services.FFmpeg;
 using Snipvane.Services.Highlights;
 
@@ -16,7 +17,6 @@ namespace Snipvane.Services.Transcription;
 public class GeminiTranscriptionService
 {
     private const double ChunkSeconds = 8 * 60;
-    private const int MaxRetries = 4;
 
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -163,34 +163,15 @@ public class GeminiTranscriptionService
             }
         };
 
-        var url =
-            $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={Uri.EscapeDataString(_ai.Value.GeminiApiKey)}";
         var client = _httpClientFactory.CreateClient("gemini");
-        string body = "";
-        HttpResponseMessage? response = null;
-
-        for (var attempt = 1; attempt <= MaxRetries; attempt++)
-        {
-            response = await client.PostAsJsonAsync(url, payload, cancellationToken);
-            body = await response.Content.ReadAsStringAsync(cancellationToken);
-            if (response.IsSuccessStatusCode)
-            {
-                break;
-            }
-
-            if ((int)response.StatusCode == 429 && attempt < MaxRetries)
-            {
-                var delay = TimeSpan.FromSeconds(15 * attempt);
-                _logger.LogWarning(
-                    "Gemini rate-limited while transcribing; retry {Attempt}/{Max} after {Delay}s",
-                    attempt, MaxRetries, delay.TotalSeconds);
-                await Task.Delay(delay, cancellationToken);
-                continue;
-            }
-
-            _logger.LogError("Gemini transcription failed ({Status}): {Body}", (int)response.StatusCode, Trim(body));
-            throw new InvalidOperationException($"Gemini transcription failed ({(int)response.StatusCode}): {Trim(body)}");
-        }
+        var (body, usedModel) = await GeminiGenerate.PostJsonAsync(
+            client,
+            _ai.Value.GeminiApiKey,
+            model,
+            payload,
+            _logger,
+            cancellationToken);
+        _logger.LogInformation("Gemini transcription used model {Model}", usedModel);
 
         using var doc = JsonDocument.Parse(body);
         var text = doc.RootElement
@@ -272,7 +253,4 @@ public class GeminiTranscriptionService
 
         return words;
     }
-
-    private static string Trim(string body) =>
-        body.Length <= 1500 ? body : body[..1500];
 }
