@@ -17,8 +17,9 @@ public static class GeminiGenerate
         foreach (var name in new[]
                  {
                      primary?.Trim(),
-                     "gemini-2.5-flash",
-                     "gemini-2.5-flash-lite"
+                     "gemini-3.5-flash-lite",
+                     "gemini-3.5-flash",
+                     "gemini-3.6-flash"
                  })
         {
             if (!string.IsNullOrWhiteSpace(name) && seen.Add(name))
@@ -124,6 +125,7 @@ public static class GeminiGenerate
 
     private static bool IsMissingModel(int statusCode, string body) =>
         statusCode is 404
+        || body.Contains("no longer available", StringComparison.OrdinalIgnoreCase)
         || (statusCode == 400 && body.Contains("not found", StringComparison.OrdinalIgnoreCase));
 
     private static TimeSpan Delay(int attempt) =>

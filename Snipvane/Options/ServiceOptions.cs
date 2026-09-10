@@ -33,7 +33,7 @@ public class AiOptions
     /// <summary>Gemini or Claude.</summary>
     public string Provider { get; set; } = "Gemini";
     public string GeminiApiKey { get; set; } = string.Empty;
-    public string GeminiModel { get; set; } = "gemini-3.6-flash";
+    public string GeminiModel { get; set; } = "gemini-3.5-flash-lite";
     public string ClaudeApiKey { get; set; } = string.Empty;
     public string ClaudeModel { get; set; } = "claude-sonnet-4-20250514";
 

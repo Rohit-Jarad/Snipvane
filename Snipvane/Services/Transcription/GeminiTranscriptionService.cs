@@ -114,7 +114,7 @@ public class GeminiTranscriptionService
                 "An audio chunk is too large for Gemini inline upload. Re-extract at a lower bitrate.");
         }
 
-        var model = string.IsNullOrWhiteSpace(_ai.Value.GeminiModel) ? "gemini-3.6-flash" : _ai.Value.GeminiModel;
+        var model = string.IsNullOrWhiteSpace(_ai.Value.GeminiModel) ? "gemini-3.5-flash-lite" : _ai.Value.GeminiModel;
         var prompt =
             $$"""
             Transcribe this audio with word-level timestamps.

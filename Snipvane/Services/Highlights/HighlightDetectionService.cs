@@ -99,7 +99,7 @@ public class HighlightDetectionService : IHighlightAnalyzer
                 "Gemini API key is missing. Add Ai:GeminiApiKey to Snipvane/appsettings.Local.json (gitignored), or set GEMINI_API_KEY.");
         }
 
-        var model = string.IsNullOrWhiteSpace(Ai.GeminiModel) ? "gemini-3.6-flash" : Ai.GeminiModel;
+        var model = string.IsNullOrWhiteSpace(Ai.GeminiModel) ? "gemini-3.5-flash-lite" : Ai.GeminiModel;
         var payload = new
         {
             systemInstruction = new
