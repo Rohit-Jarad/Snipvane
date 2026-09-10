@@ -13,9 +13,8 @@ obj/
 appsettings.Local.json
 appsettings.*.local.json
 
-## Storage (uploaded videos, generated clips, transcripts)
-Snipvane/Storage/
-Storage/
+## Runtime media (uploaded videos / clips). Do not ignore Services/Storage (C# code).
+/Snipvane/Storage/
 Snipvane/wwwroot/
 
 ## Node / React

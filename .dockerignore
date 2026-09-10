@@ -11,8 +11,8 @@ client/node_modules
 client/dist
 Snipvane/wwwroot
 
-# Secrets and media
+# Secrets and runtime media (not Snipvane/Services/Storage C# code)
 **/appsettings.Local.json
-**/Storage
+/Snipvane/Storage
 **/.env
 **/.env.local
