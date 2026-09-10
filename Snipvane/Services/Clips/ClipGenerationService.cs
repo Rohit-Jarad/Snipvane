@@ -6,7 +6,6 @@ using Snipvane.Options;
 using Snipvane.Services.FFmpeg;
 using Snipvane.Services.Highlights;
 using Snipvane.Services.Storage;
-using Snipvane.Services.Subtitles;
 
 namespace Snipvane.Services.Clips;
 
@@ -23,7 +22,6 @@ public class ClipGenerationService : IClipGenerationService
 {
     private readonly AppDbContext _db;
     private readonly IFFmpegService _ffmpeg;
-    private readonly ISubtitleService _subtitles;
     private readonly IMediaStorage _storage;
     private readonly PipelineOptions _pipeline;
     private readonly ILogger<ClipGenerationService> _logger;
@@ -31,14 +29,12 @@ public class ClipGenerationService : IClipGenerationService
     public ClipGenerationService(
         AppDbContext db,
         IFFmpegService ffmpeg,
-        ISubtitleService subtitles,
         IMediaStorage storage,
         IOptionsSnapshot<PipelineOptions> pipeline,
         ILogger<ClipGenerationService> logger)
     {
         _db = db;
         _ffmpeg = ffmpeg;
-        _subtitles = subtitles;
         _storage = storage;
         _pipeline = pipeline.Value;
         _logger = logger;
@@ -56,8 +52,8 @@ public class ClipGenerationService : IClipGenerationService
             .ToList();
 
         _logger.LogInformation(
-            "Generating {Count} clips for video {VideoId} (from {Total} candidates)",
-            selected.Count, video.Id, segments.Count);
+            "Generating {Count} clips for video {VideoId} (from {Total} candidates, {WordCount} transcript words)",
+            selected.Count, video.Id, segments.Count, transcript.Words.Count);
 
         var created = new List<Clip>();
         var sort = 0;
@@ -67,20 +63,16 @@ public class ClipGenerationService : IClipGenerationService
             cancellationToken.ThrowIfCancellationRequested();
             var clipId = Guid.NewGuid();
             var clipPath = _storage.GetClipPath(video.Id, clipId);
-            var assPath = _storage.GetClipAssPath(video.Id, clipId);
             var duration = segment.EndTime - segment.StartTime;
 
             try
             {
-                var ass = _subtitles.BuildKaraokeAss(transcript.Words, segment.StartTime, segment.EndTime);
-                await File.WriteAllTextAsync(assPath, ass, cancellationToken);
-
                 await _ffmpeg.CutVerticalClipAsync(
                     video.StoredFilePath,
                     clipPath,
                     segment.StartTime,
                     duration,
-                    assPath,
+                    assSubtitlePath: null,
                     cancellationToken);
 
                 var clip = new Clip
@@ -99,6 +91,7 @@ public class ClipGenerationService : IClipGenerationService
                 };
 
                 _db.Clips.Add(clip);
+                await _db.SaveChangesAsync(cancellationToken);
                 created.Add(clip);
                 _logger.LogInformation(
                     "Clip {ClipId} generated for video {VideoId}: '{Title}' score={Score} {Start}-{End}",
@@ -114,7 +107,6 @@ public class ClipGenerationService : IClipGenerationService
             }
         }
 
-        await _db.SaveChangesAsync(cancellationToken);
         return created;
     }
 }

@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { api } from '../api'
 import KeysBanner from '../components/KeysBanner'
-import type { Clip, VideoDetail, VideoStatus } from '../types'
+import type { Clip, TranscriptWord, VideoDetail, VideoStatus } from '../types'
 
 const ACTIVE: VideoStatus[] = [
   'Uploaded',
@@ -17,7 +17,7 @@ const STAGE_COPY: Record<VideoStatus, string> = {
   ExtractingAudio: 'Extracting audio with FFmpeg',
   Transcribing: 'Whisper word-level transcript',
   Analyzing: 'Scoring highlight moments',
-  GeneratingClips: 'Cutting vertical clips + burning captions (can take a few minutes)',
+  GeneratingClips: 'Cutting clips (fast trim, captions overlay in the player)',
   Completed: 'Ready for review',
   Failed: 'Pipeline failed',
 }
@@ -176,12 +176,7 @@ export default function ReviewPage() {
                   className={`border bg-ink-2 ${clip.isKept ? 'border-line' : 'border-line opacity-55'}`}
                 >
                   {clip.hasFile ? (
-                    <video
-                      className="aspect-[9/16] w-full bg-black object-cover"
-                      src={api.clipPreviewUrl(clip.id)}
-                      controls
-                      playsInline
-                    />
+                    <ClipPreview clip={clip} words={video.transcript?.words ?? []} />
                   ) : (
                     <div className="flex aspect-[9/16] items-center justify-center text-xs text-paper-dim">
                       File missing
@@ -241,6 +236,49 @@ export default function ReviewPage() {
           )}
         </section>
       </div>
+    </div>
+  )
+}
+
+function ClipPreview({ clip, words }: { clip: Clip; words: TranscriptWord[] }) {
+  const ref = useRef<HTMLVideoElement>(null)
+  const [now, setNow] = useState(0)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const onTime = () => setNow(el.currentTime)
+    el.addEventListener('timeupdate', onTime)
+    return () => el.removeEventListener('timeupdate', onTime)
+  }, [clip.id])
+
+  const abs =
+    now >= clip.startTime - 0.75 && now <= clip.endTime + 0.75
+      ? now
+      : clip.startTime + now
+  const line = words.filter((w) => w.end > abs - 0.15 && w.start < abs + 2.4).slice(0, 8)
+
+  return (
+    <div className="relative bg-black">
+      <video
+        ref={ref}
+        className="aspect-[9/16] w-full bg-black object-cover"
+        src={api.clipPreviewUrl(clip.id)}
+        controls
+        playsInline
+      />
+      {line.length > 0 && (
+        <p className="pointer-events-none absolute inset-x-2 bottom-14 text-center text-sm font-medium leading-6 text-white">
+          {line.map((w) => {
+            const active = abs >= w.start && abs < w.end
+            return (
+              <span key={`${w.start}-${w.word}`} className={active ? 'text-yellow-300' : 'text-white/85'}>
+                {w.word}{' '}
+              </span>
+            )
+          })}
+        </p>
+      )}
     </div>
   )
 }

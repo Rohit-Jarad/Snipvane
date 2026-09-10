@@ -116,28 +116,57 @@ public class FFmpegService : IFFmpegService
         var start = startSeconds.ToString("0.###", CultureInfo.InvariantCulture);
         var duration = durationSeconds.ToString("0.###", CultureInfo.InvariantCulture);
 
+        var (srcWidth, srcHeight) = await GetVideoSizeAsync(sourceVideoPath, cancellationToken);
+        var portrait = srcHeight >= srcWidth;
+        var burnSubs = !string.IsNullOrWhiteSpace(assSubtitlePath);
         var width = _options.OutputWidth > 0 ? _options.OutputWidth : 720;
         var height = _options.OutputHeight > 0 ? _options.OutputHeight : 1280;
         var preset = string.IsNullOrWhiteSpace(_options.VideoPreset) ? "ultrafast" : _options.VideoPreset;
         var threads = _options.Threads > 0 ? _options.Threads : 1;
 
-        // Center-crop to 9:16. 720x1280 + ultrafast keeps Render's 512 MB instance alive.
-        // FUTURE: replace the geometric center crop with face/subject-detection smart crop.
-        var videoFilter =
-            $"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}";
-
-        if (!string.IsNullOrWhiteSpace(assSubtitlePath))
+        // Karaoke ASS burn is too slow for Render free. Portrait WhatsApp clips
+        // can stream-copy in seconds; captions overlay in the review UI instead.
+        if (!burnSubs && portrait)
         {
-            var escapedAss = EscapeSubtitlesFilterPath(assSubtitlePath);
-            videoFilter += $",subtitles='{escapedAss}'";
+            var copyArgs =
+                $"-y -ss {start} -i \"{sourceVideoPath}\" -t {duration} " +
+                "-c copy -avoid_negative_ts make_zero -movflags +faststart " +
+                $"\"{outputPath}\"";
+            _logger.LogInformation(
+                "Fast-cutting portrait clip {Output} start={Start}s duration={Duration}s (stream copy)",
+                outputPath, startSeconds, durationSeconds);
+            try
+            {
+                await RunAsync(FfmpegPath, copyArgs, cancellationToken);
+                return;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Stream copy failed for {Output}; falling back to ultrafast re-encode", outputPath);
+            }
         }
 
-        // -ss before -i seeks fast so free hosts are not stuck decoding the whole file.
+        string? videoFilter = null;
+        if (!portrait)
+        {
+            videoFilter =
+                $"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}";
+        }
+
+        if (burnSubs)
+        {
+            var escapedAss = EscapeSubtitlesFilterPath(assSubtitlePath!);
+            videoFilter = string.IsNullOrWhiteSpace(videoFilter)
+                ? $"subtitles='{escapedAss}'"
+                : videoFilter + $",subtitles='{escapedAss}'";
+        }
+
+        var filterArg = string.IsNullOrWhiteSpace(videoFilter) ? "" : $"-vf \"{videoFilter}\" ";
         var args =
             $"-y -ss {start} -i \"{sourceVideoPath}\" -t {duration} " +
             $"-threads {threads} -filter_threads {threads} " +
-            $"-vf \"{videoFilter}\" " +
-            $"-c:v libx264 -preset {preset} -crf 26 -pix_fmt yuv420p " +
+            filterArg +
+            $"-c:v libx264 -preset {preset} -crf 28 -pix_fmt yuv420p " +
             "-c:a aac -b:a 96k -ac 1 -movflags +faststart " +
             $"\"{outputPath}\"";
 

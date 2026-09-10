@@ -44,7 +44,7 @@ public class AiOptions
 public class PipelineOptions
 {
     public const string SectionName = "Pipeline";
-    public int MaxClipsToGenerate { get; set; } = 3;
+    public int MaxClipsToGenerate { get; set; } = 2;
     public double MinSegmentSeconds { get; set; } = 30;
     public double MaxSegmentSeconds { get; set; } = 60;
     public bool AutoProcessOnUpload { get; set; } = true;
