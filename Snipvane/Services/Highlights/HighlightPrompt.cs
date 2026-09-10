@@ -20,6 +20,12 @@ public static class HighlightPrompt
     {
         var min = pipeline.MinSegmentSeconds;
         var max = pipeline.MaxSegmentSeconds;
+        var clipCount = Math.Max(1, pipeline.MaxClipsToGenerate);
+        var shortVideo = videoDurationSeconds > 0 && videoDurationSeconds < min;
+        var lengthRule = shortVideo
+            ? $"- This video is only {videoDurationSeconds:0.#}s. Return 1 segment covering almost the entire video (about {Math.Max(8, videoDurationSeconds - 1):0.#}s). Do not require {min:0}s."
+            : $"- Each segment MUST be between {min:0} and {max:0} seconds long (end_time - start_time).";
+
         var transcriptText = transcript.Text ?? string.Empty;
         if (transcriptText.Length > 120_000)
         {
@@ -30,10 +36,12 @@ public static class HighlightPrompt
 
         return
             $$"""
-            Given a timestamped transcript of a long-form video, select 5-10 highlight segments that would perform well as standalone vertical shorts.
+            Given a timestamped transcript of a video, select {{clipCount}} highlight segments that would perform well as standalone vertical shorts.
 
             Constraints:
-            - Each segment MUST be between {{min:0}} and {{max:0}} seconds long (end_time - start_time).
+            {{lengthRule}}
+            - You MUST return at least 1 segment. NEVER return "segments": [].
+            - If you are unsure, pick the densest spoken stretches.
             - start_time and end_time are in seconds on the source timeline and MUST fall within 0 and {{videoDurationSeconds:0.##}}.
             - Do not cut mid-sentence. Use the word timings to start/end on natural phrase boundaries.
             - Prefer segments with a strong hook in the first 3 seconds, a complete thought or punchline, and a satisfying ending.

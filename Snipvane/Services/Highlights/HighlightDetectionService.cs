@@ -78,6 +78,14 @@ public class HighlightDetectionService : IHighlightAnalyzer
         var parsed = ParseSegments(raw);
         var normalized = Normalize(parsed, videoDurationSeconds);
 
+        if (normalized.Count == 0)
+        {
+            _logger.LogWarning(
+                "AI returned no usable highlights; falling back to transcript windows. Raw: {Raw}",
+                Trim(raw));
+            normalized = FallbackSegments(transcript, videoDurationSeconds);
+        }
+
         _logger.LogInformation(
             "Highlight detection produced {Count} valid segments (raw parsed: {RawCount})",
             normalized.Count, parsed.Count);
@@ -85,7 +93,7 @@ public class HighlightDetectionService : IHighlightAnalyzer
         if (normalized.Count == 0)
         {
             throw new InvalidOperationException(
-                "AI highlight detection returned no valid 30-60s segments. Raw output: " + Trim(raw));
+                "AI highlight detection returned no valid segments. Raw output: " + Trim(raw));
         }
 
         return normalized;
@@ -320,7 +328,8 @@ public class HighlightDetectionService : IHighlightAnalyzer
             }
 
             length = end - start;
-            if (length < Math.Min(15, min) || string.IsNullOrWhiteSpace(segment.Title))
+            var minAcceptable = duration > 0 && duration < min ? Math.Max(8, duration * 0.5) : Math.Min(15, min);
+            if (length < minAcceptable)
             {
                 _logger.LogWarning(
                     "Dropping highlight segment '{Title}' ({Start}-{End}) after normalization",
@@ -328,12 +337,13 @@ public class HighlightDetectionService : IHighlightAnalyzer
                 continue;
             }
 
-            var score = Math.Clamp(segment.ViralityScore, 1, 10);
+            var score = Math.Clamp(segment.ViralityScore <= 0 ? 5 : segment.ViralityScore, 1, 10);
+            var title = string.IsNullOrWhiteSpace(segment.Title) ? "Highlight" : segment.Title.Trim();
             result.Add(new HighlightSegment
             {
                 StartTime = Math.Round(start, 3),
                 EndTime = Math.Round(end, 3),
-                Title = segment.Title.Trim(),
+                Title = title,
                 ViralityScore = score,
                 Reason = string.IsNullOrWhiteSpace(segment.Reason) ? "AI-selected highlight" : segment.Reason.Trim()
             });
@@ -343,6 +353,77 @@ public class HighlightDetectionService : IHighlightAnalyzer
             .OrderByDescending(s => s.ViralityScore)
             .ThenBy(s => s.StartTime)
             .ToList();
+    }
+
+    private List<HighlightSegment> FallbackSegments(TranscriptDocument transcript, double videoDurationSeconds)
+    {
+        var duration = videoDurationSeconds;
+        if (duration <= 0)
+        {
+            duration = transcript.Words.Count > 0 ? transcript.Words.Max(w => w.End) : 0;
+        }
+
+        if (duration < 8)
+        {
+            return [];
+        }
+
+        var maxClips = Math.Max(1, Pipeline.MaxClipsToGenerate);
+        var min = Pipeline.MinSegmentSeconds;
+        var max = Pipeline.MaxSegmentSeconds;
+        double window;
+        if (duration <= max)
+        {
+            window = duration;
+            maxClips = duration < min + 8 ? 1 : Math.Min(maxClips, (int)Math.Floor(duration / Math.Max(12, min * 0.6)));
+            maxClips = Math.Max(1, maxClips);
+        }
+        else
+        {
+            window = Math.Clamp(duration / maxClips, min, max);
+        }
+
+        var words = transcript.Words.OrderBy(w => w.Start).ToList();
+        var segments = new List<HighlightSegment>();
+        for (var i = 0; i < maxClips; i++)
+        {
+            var start = i * window;
+            if (start >= duration - 4)
+            {
+                break;
+            }
+
+            var end = Math.Min(duration, start + window);
+            if (end - start < 8)
+            {
+                break;
+            }
+
+            segments.Add(new HighlightSegment
+            {
+                StartTime = Math.Round(start, 3),
+                EndTime = Math.Round(end, 3),
+                Title = TitleFromWords(words, start, end, i + 1),
+                ViralityScore = Math.Max(1, 8 - i),
+                Reason = "Auto-selected window because the model returned no highlight segments."
+            });
+        }
+
+        return segments;
+    }
+
+    private static string TitleFromWords(IReadOnlyList<TranscriptWord> words, double start, double end, int index)
+    {
+        var snippet = string.Join(' ', words
+            .Where(w => w.End > start && w.Start < end && !string.IsNullOrWhiteSpace(w.Word))
+            .Take(8)
+            .Select(w => w.Word.Trim()));
+        if (string.IsNullOrWhiteSpace(snippet))
+        {
+            return "Clip " + index;
+        }
+
+        return snippet.Length <= 48 ? snippet : snippet[..45].Trim() + "…";
     }
 
     private static string Trim(string text) =>
