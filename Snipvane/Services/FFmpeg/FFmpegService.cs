@@ -116,11 +116,15 @@ public class FFmpegService : IFFmpegService
         var start = startSeconds.ToString("0.###", CultureInfo.InvariantCulture);
         var duration = durationSeconds.ToString("0.###", CultureInfo.InvariantCulture);
 
-        // Center-crop to 9:16, then scale to 1080x1920.
-        // FUTURE: replace the geometric center crop with face/subject-detection smart crop
-        // (e.g. a first-frame face box from a detector, or FFmpeg cropdetect + tracking).
-        // scale=...:force_original_aspect_ratio=increase fills the 9:16 frame; crop then trims overflow.
-        var videoFilter = "scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920";
+        var width = _options.OutputWidth > 0 ? _options.OutputWidth : 720;
+        var height = _options.OutputHeight > 0 ? _options.OutputHeight : 1280;
+        var preset = string.IsNullOrWhiteSpace(_options.VideoPreset) ? "ultrafast" : _options.VideoPreset;
+        var threads = _options.Threads > 0 ? _options.Threads : 1;
+
+        // Center-crop to 9:16. 720x1280 + ultrafast keeps Render's 512 MB instance alive.
+        // FUTURE: replace the geometric center crop with face/subject-detection smart crop.
+        var videoFilter =
+            $"scale={width}:{height}:force_original_aspect_ratio=increase,crop={width}:{height}";
 
         if (!string.IsNullOrWhiteSpace(assSubtitlePath))
         {
@@ -128,13 +132,13 @@ public class FFmpegService : IFFmpegService
             videoFilter += $",subtitles='{escapedAss}'";
         }
 
-        // Re-encode is required for crop + burned-in subs. -ss after -i is slower but frame-accurate,
-        // which keeps karaoke subtitles aligned with the word timestamps.
+        // -ss before -i seeks fast so free hosts are not stuck decoding the whole file.
         var args =
-            $"-y -i \"{sourceVideoPath}\" -ss {start} -t {duration} " +
+            $"-y -ss {start} -i \"{sourceVideoPath}\" -t {duration} " +
+            $"-threads {threads} -filter_threads {threads} " +
             $"-vf \"{videoFilter}\" " +
-            "-c:v libx264 -preset veryfast -crf 23 -pix_fmt yuv420p " +
-            "-c:a aac -b:a 128k -ac 2 -movflags +faststart " +
+            $"-c:v libx264 -preset {preset} -crf 26 -pix_fmt yuv420p " +
+            "-c:a aac -b:a 96k -ac 1 -movflags +faststart " +
             $"\"{outputPath}\"";
 
         _logger.LogInformation(

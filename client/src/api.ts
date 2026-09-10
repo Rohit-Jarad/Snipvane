@@ -2,6 +2,9 @@ import type { Clip, HealthStatus, UploadResponse, VideoDetail, VideoListItem } f
 
 async function parseError(response: Response): Promise<string> {
   const text = await response.text()
+  if (/<!DOCTYPE|<html/i.test(text)) {
+    return `Server busy (${response.status}). Encoding is still running — wait and refresh.`
+  }
   try {
     const json = JSON.parse(text) as { message?: string; title?: string }
     return json.message || json.title || text || response.statusText

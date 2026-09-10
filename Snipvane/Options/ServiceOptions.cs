@@ -11,6 +11,12 @@ public class FFmpegOptions
     public const string SectionName = "FFmpeg";
     public string ExecutablePath { get; set; } = string.Empty;
     public string FfprobePath { get; set; } = string.Empty;
+
+    /// <summary>Vertical output size. 720x1280 stays within Render free RAM.</summary>
+    public int OutputWidth { get; set; } = 720;
+    public int OutputHeight { get; set; } = 1280;
+    public string VideoPreset { get; set; } = "ultrafast";
+    public int Threads { get; set; } = 1;
 }
 
 public class OpenAIOptions
@@ -38,7 +44,7 @@ public class AiOptions
 public class PipelineOptions
 {
     public const string SectionName = "Pipeline";
-    public int MaxClipsToGenerate { get; set; } = 5;
+    public int MaxClipsToGenerate { get; set; } = 3;
     public double MinSegmentSeconds { get; set; } = 30;
     public double MaxSegmentSeconds { get; set; } = 60;
     public bool AutoProcessOnUpload { get; set; } = true;

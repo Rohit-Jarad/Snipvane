@@ -17,7 +17,7 @@ const STAGE_COPY: Record<VideoStatus, string> = {
   ExtractingAudio: 'Extracting audio with FFmpeg',
   Transcribing: 'Whisper word-level transcript',
   Analyzing: 'Scoring highlight moments',
-  GeneratingClips: 'Cutting vertical clips + burning captions',
+  GeneratingClips: 'Cutting vertical clips + burning captions (can take a few minutes)',
   Completed: 'Ready for review',
   Failed: 'Pipeline failed',
 }
